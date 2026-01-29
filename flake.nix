@@ -2,18 +2,17 @@
   description = "maja's nix-darwin system flake";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.05-darwin";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.11-darwin";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    nix-darwin.url = "github:LnL7/nix-darwin/nix-darwin-25.05";
+    nix-darwin.url = "github:LnL7/nix-darwin/nix-darwin-25.11";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
-    home-manager.url = "github:nix-community/home-manager/release-25.05";
+    home-manager.url = "github:nix-community/home-manager/release-25.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    niteo-claude.url = "git+ssh://git@github.com/teamniteo/claude?ref=main";
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, nix-darwin, home-manager }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, nix-darwin, home-manager, niteo-claude }:
   let
-    secrets = import /Users/maja/.dotfiles/secrets.nix;
-
     homeconfig = { pkgs, lib, ... }: {
       # Home Manager configuration
       # https://nix-community.github.io/home-manager/
@@ -26,7 +25,6 @@
       # Software I can't live without
       home.packages = with pkgs; [
         (import nixpkgs-unstable { system = "aarch64-darwin"; }).devenv
-        (import nixpkgs-unstable { system = "aarch64-darwin"; config.allowUnfree = true; }).claude-code
         (import nixpkgs-unstable { system = "aarch64-darwin"; config.allowUnfree = true; }).codex
         pkgs.cachix
         pkgs.python3
@@ -47,7 +45,6 @@
         enable = true;
         diff-so-fancy.enable = true;
         userName = "Maja Rovtar";
-        userEmail = secrets.email;
         extraConfig = {
           core = {
             editor = "nano";
@@ -118,8 +115,8 @@
           PYTHONDONTWRITEBYTECODE = "0";
         };
         shellAliases = {
-          nixre = "sudo darwin-rebuild switch --flake ~/.dotfiles#Majas-MacBook-Air --impure";
-          nixcfg = "code ~/.dotfiles";    
+          nixre = "sudo darwin-rebuild switch --flake ~/work/dotfiles#Majas-MacBook-Air";
+          nixcfg = "code ~/work/dotfiles";    
           c = "code .";
           ga = "git add -p";
         };
@@ -127,17 +124,10 @@
           append = true;
           share = true;
         };
-        # Use VSCode as the default editor on the Mac
-        home.file.".editor" = {
-          executable = true;
-          text = ''
-            #!/bin/bash
-            # https://github.com/microsoft/vscode/issues/68579#issuecomment-463039009
-            code --wait "$@"
-            open -a Terminal
-          '';
-        };
         initContent = ''
+          # Source secrets if available
+          [[ -f ~/work/dotfiles/secrets.env ]] && source ~/work/dotfiles/secrets.env
+
           function edithosts {
               export EDITOR="code --wait"
               sudo -e /etc/hosts
@@ -146,6 +136,55 @@
           }        
         '';
       };
+
+    programs.claude-code = {
+    enable = true;
+    package = (import nixpkgs-unstable { system = "aarch64-darwin"; config.allowUnfree = true; }).claude-code;
+
+    # Get team MCPs from teamniteo/claude
+    mcpServers = niteo-claude.lib.mcpServers pkgs // {};
+
+    settings = {
+
+      # Get team Plugins from teamniteo/claude
+      enabledPlugins = niteo-claude.lib.enabledPlugins // {};
+
+      # Get team Permissions from teamniteo/claude
+      permissions.allow = niteo-claude.lib.permissions.allow ++ [
+
+        # Auto-allow read-only commands in common directories
+        "Read(~/work/*)"
+        "Read(~/tmp/*)"
+        "Bash(cat ~/work/*)"
+        "Bash(cat /tmp/*)"
+        "Bash(head ~/work/*)"
+        "Bash(head /tmp/*)"
+        "Bash(ls ~/work/*)"
+        "Bash(ls /tmp/*)"
+        "Bash(tail ~/work/*)"
+        "Bash(tail /tmp/*)"
+      ];
+    };
+
+    # Personal CLAUDE.md content
+    memory.text = ''
+      # About the User
+
+      Neyts Zupan (zupo) - Founder and CTO of Niteo.co, a bootstrapped multi-product company founded in 2007, based in EU. Also founder of
+        * ParetoSecurity.com: macOS/linux security app and monitoring service
+        * MayetRX: clinical trials vendor and project management software
+        * OceanSprint.org: Nix(OS) developer hackathons
+
+      - Passionate about code quality, testing, and continuous delivery.
+      - Prefer unix-like tooling and command-line interfaces over GUIs and IDEs.
+      - Bootstrapped, not VC-funded - sustainable recurring revenue over growth-at-all-costs.
+      - Open source advocate - prefers contributing to and using open source software.
+      - Effectiveness over productivity - focus on impact, not hours
+
+      **GitHub:** github.com/zupo - use the GitHub MCP to access private repos when needed.
+      **Workstation:** github.com/zupo/dotfiles - usually invokes Claude from his nix-darwin-powered MacBook defined in these dotfiles.
+    '';
+  };
 
       # Don't show the "Last login" message for every new terminal.
       home.file.".hushlogin" = {
@@ -158,7 +197,7 @@
         # Building this configuration will create a copy of 'dotfiles/screenrc' in
         # the Nix store. Activating the configuration will then make '~/.screenrc' a
         # symlink to the Nix store copy.
-        # ".screenrc".source = .dotfiles/screenrc;
+        # ".screenrc".source = work/dotfiles/screenrc;
 
         # You can also set the file content immediately.
         ".editor" = {
@@ -248,6 +287,9 @@
             home-manager.useUserPackages = true;
             home-manager.users.maja = homeconfig;
             home-manager.backupFileExtension = ".backup";
+            home-manager.extraSpecialArgs = {
+              inherit niteo-claude;
+            };
         }
       ];
     };
