@@ -13,7 +13,30 @@
 
   outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, nix-darwin, home-manager, niteo-claude }:
   let
-    homeconfig = { pkgs, lib, ... }: {
+    # Helper function to create pkgsUnstable for any system
+    mkPkgsUnstable = system: import nixpkgs-unstable {
+      inherit system;
+      config.allowUnfree = true;
+    };
+
+    # Common modules that can be imported by any system
+    commonModules = {
+      ai = import ./common/ai.nix;
+      direnv = import ./common/direnv.nix;
+      files = import ./common/files.nix;
+      gitconfig = import ./common/gitconfig.nix;
+      zsh = import ./common/zsh.nix;
+    };
+
+    homeconfig = { pkgs, lib, pkgsUnstable, commonModules, niteo-claude, ... }: {
+      imports = [
+        (commonModules.ai { inherit pkgs pkgsUnstable niteo-claude lib; })
+        commonModules.direnv
+        commonModules.files
+        commonModules.gitconfig
+        commonModules.zsh
+      ];
+
       # Home Manager configuration
       # https://nix-community.github.io/home-manager/
       home.homeDirectory = lib.mkForce "/Users/maja";
@@ -24,171 +47,16 @@
 
       # Software I can't live without
       home.packages = with pkgs; [
-        (import nixpkgs-unstable { system = "aarch64-darwin"; }).devenv
-        (import nixpkgs-unstable { system = "aarch64-darwin"; config.allowUnfree = true; }).codex
+        pkgsUnstable.devenv
+        pkgsUnstable.codex
         pkgs.cachix
         pkgs.python3
         pkgs.heroku
       ];
 
-      programs.direnv = {
-        enable = true;
-        nix-direnv.enable = true;
-      };
-
       programs.fzf = {
         enable = true;
         enableZshIntegration = true;
-      };
-
-      programs.git = {
-        enable = true;
-        diff-so-fancy.enable = true;
-        userName = "Maja Rovtar";
-        extraConfig = {
-          core = {
-            editor = "nano";
-          };
-          diff = {
-            tool = "diffmerge";
-          };
-          github = {
-            user = "majarovtar";
-          };
-        };
-        ignores = [
-          # Packages: it's better to unpack these files and commit the raw source
-          # git has its own built in compression methods
-          "*.7z"
-          "*.dmg"
-          "*.gz"
-          "*.iso"
-          "*.jar"
-          "*.rar"
-          "*.tar"
-          "*.zip"
-
-          # OS generated files
-          ".DS_Store"
-          ".DS_Store?"
-          "ehthumbs.db"
-          "Icon?"
-          "Thumbs.db"
-
-          # Sublime
-          "sublime/*.cache"
-          "sublime/oscrypto-ca-bundle.crt"
-          "sublime/Package Control.last-run"
-          "sublime/Package Control.merged-ca-bundle"
-          "sublime/Package Control.user-ca-bundle"
-
-          # VS Code
-          "vscode/History/"
-          "vscode/globalStorage/"
-          "vscode/workspaceStorage/"
-
-          # Secrets
-          "ssh_config_private"
-        ];
-      };
-
-      programs.zsh = {
-        enable = true;
-        autosuggestion.enable = true;
-        enableCompletion = true;
-        oh-my-zsh = {
-          enable = true;
-          theme = "robbyrussell";
-          plugins = ["git" "python" "sudo" "direnv"];
-        };
-        sessionVariables = {
-          LC_ALL = "en_US.UTF-8";
-          LANG = "en_US.UTF-8";
-          EDITOR = "~/.editor";
-
-          # Enable a few neat OMZ features
-          HYPHEN_INSENSITIVE = "true";
-          COMPLETION_WAITING_DOTS = "true";
-
-          # Disable generation of .pyc files
-          # https://docs.python-guide.org/writing/gotchas/#disabling-bytecode-pyc-files
-          PYTHONDONTWRITEBYTECODE = "0";
-        };
-        shellAliases = {
-          nixre = "sudo darwin-rebuild switch --flake ~/work/dotfiles#Majas-MacBook-Air";
-          nixcfg = "code ~/work/dotfiles";    
-          c = "code .";
-          ga = "git add -p";
-        };
-        history = {
-          append = true;
-          share = true;
-        };
-        initContent = ''
-          # Source secrets if available
-          [[ -f ~/work/dotfiles/secrets.env ]] && source ~/work/dotfiles/secrets.env
-
-          function edithosts {
-              export EDITOR="code --wait"
-              sudo -e /etc/hosts
-              echo "* Successfully edited /etc/hosts"
-              sudo dscacheutil -flushcache && echo "* Flushed local DNS cache"
-          }        
-        '';
-      };
-
-    programs.claude-code = {
-    enable = true;
-    package = (import nixpkgs-unstable { system = "aarch64-darwin"; config.allowUnfree = true; }).claude-code;
-
-    # Get team MCPs from teamniteo/claude
-    mcpServers = niteo-claude.lib.mcpServers pkgs // {};
-
-    settings = {
-
-      # Get team Plugins from teamniteo/claude
-      enabledPlugins = niteo-claude.lib.enabledPlugins // {};
-
-      # Get team Permissions from teamniteo/claude
-      permissions.allow = niteo-claude.lib.permissions.allow ++ [
-
-        # Auto-allow read-only commands in common directories
-        "Read(~/work/*)"
-        "Read(~/tmp/*)"
-        "Bash(cat ~/work/*)"
-        "Bash(cat /tmp/*)"
-        "Bash(head ~/work/*)"
-        "Bash(head /tmp/*)"
-        "Bash(ls ~/work/*)"
-        "Bash(ls /tmp/*)"
-        "Bash(tail ~/work/*)"
-        "Bash(tail /tmp/*)"
-      ];
-    };
-
-    # Personal CLAUDE.md content
-    memory.text = ''
-      # About the User
-
-      Neyts Zupan (zupo) - Founder and CTO of Niteo.co, a bootstrapped multi-product company founded in 2007, based in EU. Also founder of
-        * ParetoSecurity.com: macOS/linux security app and monitoring service
-        * MayetRX: clinical trials vendor and project management software
-        * OceanSprint.org: Nix(OS) developer hackathons
-
-      - Passionate about code quality, testing, and continuous delivery.
-      - Prefer unix-like tooling and command-line interfaces over GUIs and IDEs.
-      - Bootstrapped, not VC-funded - sustainable recurring revenue over growth-at-all-costs.
-      - Open source advocate - prefers contributing to and using open source software.
-      - Effectiveness over productivity - focus on impact, not hours
-
-      **GitHub:** github.com/zupo - use the GitHub MCP to access private repos when needed.
-      **Workstation:** github.com/zupo/dotfiles - usually invokes Claude from his nix-darwin-powered MacBook defined in these dotfiles.
-    '';
-  };
-
-      # Don't show the "Last login" message for every new terminal.
-      home.file.".hushlogin" = {
-        text = "";
       };
 
       # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -288,7 +156,8 @@
             home-manager.users.maja = homeconfig;
             home-manager.backupFileExtension = ".backup";
             home-manager.extraSpecialArgs = {
-              inherit niteo-claude;
+              pkgsUnstable = mkPkgsUnstable "aarch64-darwin";
+              inherit commonModules niteo-claude;
             };
         }
       ];
