@@ -2,8 +2,14 @@
   pkgsUnstable,
   niteo-claude,
   pkgs,
+  lib,
   ...
 }: {
+  home.file = lib.mapAttrs' (name: path: {
+    name = ".claude/skills/${name}";
+    value = { source = path; recursive = true; };
+  }) niteo-claude.lib.skills;
+
   programs.claude-code = {
     enable = true;
     package = pkgsUnstable.claude-code;
