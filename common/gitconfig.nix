@@ -9,6 +9,8 @@ _: {
     settings = {
       user = {
         name = "Maja Rovtar";
+        email = "70475196+majarovtar@users.noreply.github.com";
+      };
       };
       core = {
         editor = "nano";
