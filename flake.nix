@@ -8,7 +8,7 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
     home-manager.url = "github:nix-community/home-manager/release-25.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    niteo-claude.url = "git+ssh://git@github.com/teamniteo/claude?ref=main";
+    niteo-claude.url = "github:teamniteo/claude";
   };
 
   outputs = inputs@{ self, nixpkgs, nixpkgs-unstable, nix-darwin, home-manager, niteo-claude }:
@@ -151,8 +151,8 @@
   in
   {
     # Build darwin flake using:
-    # $ darwin-rebuild build --flake .#Majas-MacBook-Air
-    darwinConfigurations."Majas-MacBook-Air" = nix-darwin.lib.darwinSystem {
+    # $ darwin-rebuild build --flake .#MacBook-Air
+    darwinConfigurations."MacBook-Air" = nix-darwin.lib.darwinSystem {
       modules = [
         configuration
         home-manager.darwinModules.home-manager  {
@@ -169,7 +169,7 @@
     };
 
     # Expose the package set, including overlays, for convenience.
-    darwinPackages = self.darwinConfigurations."Majas-MacBook-Air".pkgs;
+    darwinPackages = self.darwinConfigurations."MacBook-Air".pkgs;
 
     # Support using parts of the config elsewhere
     homeconfig = homeconfig;

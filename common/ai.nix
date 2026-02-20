@@ -15,7 +15,13 @@
     package = pkgsUnstable.claude-code;
 
     # Get team MCPs from teamniteo/claude
-    mcpServers = niteo-claude.lib.mcpServers pkgs // {};
+    mcpServers = niteo-claude.lib.mcpServers pkgs // {
+      # Override imagesorcery-mcp to pin fastmcp<3 (v3.0 removed log_level kwarg from FastMCP())
+      imagesorcery-mcp = {
+        command = "${pkgsUnstable.uv}/bin/uvx";
+        args = [ "--with" "fastmcp<3" "imagesorcery-mcp" ];
+      };
+    };
 
     settings = {
       # Get team Plugins from teamniteo/claude

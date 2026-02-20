@@ -22,7 +22,7 @@ _: {
       PYTHONDONTWRITEBYTECODE = "0";
     };
     shellAliases = {
-      nixre = "sudo darwin-rebuild switch --flake ~/work/dotfiles#Majas-MacBook-Air";
+      nixre = "sudo darwin-rebuild switch --flake ~/work/dotfiles#MacBook-Air";
       nixup = "cd ~/work/dotfiles && nix flake update && nixre";
       nixgc = "nix-collect-garbage";
       nixcfg = "code ~/work/dotfiles";
